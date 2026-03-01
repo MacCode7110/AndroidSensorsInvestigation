@@ -1,8 +1,9 @@
 package com.example.androidsensorsinvestigation.ui.main
 
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -11,12 +12,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -33,6 +35,7 @@ fun MainScreen(
     viewModel: MainViewModel = hiltViewModel()
 ) {
     val activity = ActivityType.RUNNING
+    val locationEnabled by viewModel.locationEnabled.collectAsState()
 
     Column(
         modifier = modifier
@@ -44,7 +47,15 @@ fun MainScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        MapView()
+        if(!locationEnabled) {
+            RequestLocationPermission {
+                viewModel.setLocationEnabled(true)
+            }
+        }
+
+        if(locationEnabled) {
+            MapView(viewModel = viewModel)
+        }
 
         ActivityView(activity = activity)
     }
@@ -69,17 +80,6 @@ fun DataText(
     Text(
         text = "Steps taken since app started: $steps",
         fontSize = 18.sp
-    )
-}
-
-@Composable
-fun MapView() {
-    // Cody -I'll fully implement this later
-    Box(
-        modifier = Modifier
-            .height(300.dp)
-            .width(300.dp)
-            .background(Color.Green)
     )
 }
 
@@ -116,6 +116,37 @@ fun ActivityView(
             text = activityText,
             fontSize = 20.sp,
             modifier = Modifier.padding(top = 10.dp)
+        )
+    }
+}
+
+@Composable
+fun RequestLocationPermission(
+    onPermissionGranted: () -> Unit
+) {
+    val context = LocalContext.current
+
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+
+        val fineLocationGranted =
+            permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
+
+        val coarseLocationGranted =
+            permissions[Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
+
+        if (fineLocationGranted || coarseLocationGranted) {
+            onPermissionGranted()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        launcher.launch(
+            arrayOf(
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            )
         )
     }
 }
