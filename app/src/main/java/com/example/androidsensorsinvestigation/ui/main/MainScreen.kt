@@ -38,6 +38,10 @@ fun MainScreen(
     val activity by viewModel.activityType.collectAsState()
     val locationEnabled by viewModel.locationEnabled.collectAsState()
 
+    LaunchedEffect(Unit){
+        viewModel.startActivityTracking()
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -146,7 +150,6 @@ fun RequestLocationPermission(
     }
 
     LaunchedEffect(Unit) {
-        MainViewModel.startActivityTracking()
         launcher.launch(
             arrayOf(
                 Manifest.permission.ACCESS_FINE_LOCATION,
