@@ -24,6 +24,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.androidsensorsinvestigation.viewmodel.ActivityType
 import com.example.androidsensorsinvestigation.viewmodel.MainViewModel
 import com.example.androidsensorsinvestigation.R
@@ -34,7 +35,7 @@ fun MainScreen(
     modifier: Modifier = Modifier,
     viewModel: MainViewModel = hiltViewModel()
 ) {
-    val activity = ActivityType.RUNNING
+    val activity by viewModel.activityType.collectAsState()
     val locationEnabled by viewModel.locationEnabled.collectAsState()
 
     Column(
@@ -136,16 +137,21 @@ fun RequestLocationPermission(
         val coarseLocationGranted =
             permissions[Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
 
-        if (fineLocationGranted || coarseLocationGranted) {
+        val activityRecognitionGranted =
+            permissions[Manifest.permission.ACTIVITY_RECOGNITION] ?: false
+
+        if ((fineLocationGranted || coarseLocationGranted) && activityRecognitionGranted) {
             onPermissionGranted()
         }
     }
 
     LaunchedEffect(Unit) {
+        MainViewModel.startActivityTracking()
         launcher.launch(
             arrayOf(
                 Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.ACCESS_COARSE_LOCATION
+                Manifest.permission.ACCESS_COARSE_LOCATION,
+                Manifest.permission.ACTIVITY_RECOGNITION
             )
         )
     }
