@@ -47,13 +47,18 @@ fun MainScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        if(!locationEnabled) {
+        if (!locationEnabled) {
             RequestLocationPermission {
                 viewModel.setLocationEnabled(true)
+                viewModel.startLocationUpdates()
+                viewModel.registerGeofences()
             }
         }
 
-        if(locationEnabled) {
+        if (locationEnabled) {
+            LaunchedEffect(Unit) {
+                viewModel.registerGeofences()
+            }
             MapView(viewModel = viewModel)
         }
 
@@ -145,7 +150,8 @@ fun RequestLocationPermission(
         launcher.launch(
             arrayOf(
                 Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.ACCESS_COARSE_LOCATION
+                Manifest.permission.ACCESS_COARSE_LOCATION,
+                Manifest.permission.ACCESS_BACKGROUND_LOCATION
             )
         )
     }
