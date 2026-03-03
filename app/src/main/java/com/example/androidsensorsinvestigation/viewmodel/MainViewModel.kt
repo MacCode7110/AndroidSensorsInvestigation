@@ -99,7 +99,7 @@ class MainViewModel @Inject constructor(
         val geofenceList = listOf(
             Geofence.Builder()
                 .setRequestId("campus_center")
-                .setCircularRegion(42.274641, -71.808457, 50f)
+                .setCircularRegion(42.274641, -71.808457, 100f)
                 .setExpirationDuration(Geofence.NEVER_EXPIRE)
                 .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_DWELL)
                 .setLoiteringDelay(5000)
@@ -107,7 +107,7 @@ class MainViewModel @Inject constructor(
 
             Geofence.Builder()
                 .setRequestId("unity_hall")
-                .setCircularRegion(42.273808, -71.806722, 50f)
+                .setCircularRegion(42.273808, -71.806722, 100f)
                 .setExpirationDuration(Geofence.NEVER_EXPIRE)
                 .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_DWELL)
                 .setLoiteringDelay(5000)
