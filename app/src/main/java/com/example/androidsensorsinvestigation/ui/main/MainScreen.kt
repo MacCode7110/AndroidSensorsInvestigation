@@ -2,6 +2,8 @@ package com.example.androidsensorsinvestigation.ui.main
 
 import android.Manifest
 import android.util.Log
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -17,6 +19,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -28,6 +31,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.example.androidsensorsinvestigation.R
 import com.example.androidsensorsinvestigation.viewmodel.ActivityType
@@ -42,6 +46,37 @@ fun MainScreen(
 ) {
     val activity by viewModel.activityType.collectAsState()
     val locationEnabled by viewModel.locationEnabled.collectAsState()
+    val context = LocalContext.current
+
+    val hasLocationPermission = ContextCompat.checkSelfPermission(
+        context, Manifest.permission.ACCESS_FINE_LOCATION
+    ) == PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(
+        context, Manifest.permission.ACCESS_COARSE_LOCATION
+    ) == PackageManager.PERMISSION_GRANTED
+
+    val hasActivityPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        ContextCompat.checkSelfPermission(
+            context, Manifest.permission.ACTIVITY_RECOGNITION
+        ) == PackageManager.PERMISSION_GRANTED
+    } else {
+        true
+    }
+
+    LaunchedEffect(hasLocationPermission) {
+        if (hasLocationPermission) {
+            viewModel.setLocationEnabled(true)
+        }
+    }
+
+    // Start/Stop step tracking based on activity permission and lifecycle
+    DisposableEffect(hasActivityPermission) {
+        if (hasActivityPermission) {
+            viewModel.startStepTracking()
+        }
+        onDispose {
+            viewModel.stopStepTracking()
+        }
+    }
 
     Column(
         modifier = modifier
@@ -53,10 +88,16 @@ fun MainScreen(
 
         Spacer(modifier = Modifier.height(30.dp))
 
-        if(!locationEnabled) {
-            RequestLocationPermission {
-                viewModel.setLocationEnabled(true)
+        if (!hasLocationPermission || !hasActivityPermission) {
+            RequestPermissions { result ->
+                if (result.locationGranted) {
+                    viewModel.setLocationEnabled(true)
+                }
+                if (result.activityGranted) {
+                    viewModel.startStepTracking()
+                }
                 viewModel.startActivityTracking()
+
             }
         }
 
@@ -70,7 +111,7 @@ fun MainScreen(
 
             ActivityView(activity = activity)
         }
-        
+
         if (viewModel.isDebug) {
             DebugActivityControls(viewModel)
         }
@@ -96,7 +137,7 @@ fun DataText(
 fun ActivityView(
     activity: ActivityType
 ) {
-    val activityImage = when(activity) {
+    val activityImage = when (activity) {
         ActivityType.IN_VEHICLE -> painterResource(R.drawable.in_vehicle)
         ActivityType.RUNNING -> painterResource(R.drawable.running)
         ActivityType.STILL -> painterResource(R.drawable.still)
@@ -128,30 +169,43 @@ fun ActivityView(
     }
 }
 
+data class PermissionResult(val locationGranted: Boolean, val activityGranted: Boolean)
+
 @Composable
-fun RequestLocationPermission(
-    onPermissionGranted: () -> Unit
+fun RequestPermissions(
+    onPermissionsResult: (PermissionResult) -> Unit
 ) {
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
         val fineLocationGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
         val coarseLocationGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
-        val activityRecognitionGranted = permissions[Manifest.permission.ACTIVITY_RECOGNITION] ?: false
 
-        if ((fineLocationGranted || coarseLocationGranted) && activityRecognitionGranted) {
-            onPermissionGranted()
+        val activityRecognitionGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            permissions[Manifest.permission.ACTIVITY_RECOGNITION] ?: false
+        } else {
+            true
         }
+
+        onPermissionsResult(
+            PermissionResult(
+                locationGranted = fineLocationGranted || coarseLocationGranted,
+                activityGranted = activityRecognitionGranted
+            )
+        )
     }
 
     LaunchedEffect(Unit) {
-        launcher.launch(
-            arrayOf(
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.ACCESS_COARSE_LOCATION,
-                Manifest.permission.ACTIVITY_RECOGNITION
-            )
+        val permissions = mutableListOf(
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+            Manifest.permission.ACTIVITY_RECOGNITION
+
         )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            permissions.add(Manifest.permission.ACTIVITY_RECOGNITION)
+        }
+        launcher.launch(permissions.toTypedArray())
     }
 }
 
@@ -183,3 +237,4 @@ fun DebugActivityControls(
         }
     }
 }
+
