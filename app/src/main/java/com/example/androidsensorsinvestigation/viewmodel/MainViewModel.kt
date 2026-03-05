@@ -17,7 +17,9 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import com.example.androidsensorsinvestigation.GeofenceBroadcastReceiver
 import com.example.androidsensorsinvestigation.GeofenceVisitLocation
+import com.google.android.gms.common.api.ApiException
 import com.google.android.gms.location.Geofence
+import com.google.android.gms.location.GeofenceStatusCodes
 import com.google.android.gms.location.GeofencingRequest
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
@@ -71,7 +73,7 @@ class MainViewModel @Inject constructor(
             application,
             0,
             intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
         )
     }
 
@@ -193,7 +195,7 @@ class MainViewModel @Inject constructor(
         val geofenceList = listOf(
             Geofence.Builder()
                 .setRequestId("campus_center")
-                .setCircularRegion(42.274641, -71.808457, 100f)
+                .setCircularRegion(42.274641, -71.808457, 50f)
                 .setExpirationDuration(Geofence.NEVER_EXPIRE)
                 .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_DWELL)
                 .setLoiteringDelay(5000)
@@ -201,7 +203,7 @@ class MainViewModel @Inject constructor(
 
             Geofence.Builder()
                 .setRequestId("unity_hall")
-                .setCircularRegion(42.273808, -71.806722, 100f)
+                .setCircularRegion(42.273808, -71.806722, 50f)
                 .setExpirationDuration(Geofence.NEVER_EXPIRE)
                 .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_DWELL)
                 .setLoiteringDelay(5000)
@@ -213,17 +215,21 @@ class MainViewModel @Inject constructor(
             .addGeofences(geofenceList)
             .build()
 
+        Log.i(TAG, "Attempting to register ${geofenceList.size} geofences: ${geofenceList.joinToString { it.requestId }}")
+
         try {
             geofencingClient.addGeofences(geofencingRequest, geofencePendingIntent)
                 .addOnSuccessListener {
                     isGeofenceRegistered = true
-                    Log.i(TAG, "Geofences registered successfully")
+                    Log.i(TAG, "Geofences registered successfully: campus_center, unity_hall")
                 }
                 .addOnFailureListener { e ->
-                    Log.e(TAG, "Failed to register geofences", e)
+                    val statusCode = (e as? ApiException)?.statusCode
+                    val statusMessage = statusCode?.let { GeofenceStatusCodes.getStatusCodeString(it) }
+                    Log.e(TAG, "Failed to register geofences. StatusCode=$statusCode ($statusMessage)", e)
                 }
         } catch (e: SecurityException) {
-            Log.e(TAG, "Permission error while registering geofences", e)
+            Log.e(TAG, "SecurityException while registering geofences", e)
         }
     }
 

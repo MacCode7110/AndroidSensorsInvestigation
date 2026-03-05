@@ -1,8 +1,11 @@
 package com.example.androidsensorsinvestigation.ui.main
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -12,7 +15,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -31,6 +37,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.androidsensorsinvestigation.viewmodel.ActivityType
 import com.example.androidsensorsinvestigation.viewmodel.MainViewModel
 import com.example.androidsensorsinvestigation.R
@@ -207,12 +216,47 @@ data class PermissionResult(
 fun RequestPermissions(
     onPermissionsResult: (PermissionResult) -> Unit
 ) {
-    val launcher = rememberLauncherForActivityResult(
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var showBackgroundDialog by remember { mutableStateOf(false) }
+
+    fun hasLocationPermissionNow(): Boolean {
+        val fine = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+        val coarse = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+        return fine || coarse
+    }
+
+    fun hasBackgroundPermission(): Boolean {
+        return ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_BACKGROUND_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+    }
+
+    fun hasActivityPermissionNow(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACTIVITY_RECOGNITION
+            ) == PackageManager.PERMISSION_GRANTED
+        } else {
+            true
+        }
+    }
+
+    val foregroundAndActivityLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
         val fineLocationGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
         val coarseLocationGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
-        val backgroundLocationGranted = permissions[Manifest.permission.ACCESS_BACKGROUND_LOCATION] ?: false
+        val locationGranted = fineLocationGranted || coarseLocationGranted
+
         val activityRecognitionGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             permissions[Manifest.permission.ACTIVITY_RECOGNITION] ?: false
         } else {
@@ -221,22 +265,74 @@ fun RequestPermissions(
 
         onPermissionsResult(
             PermissionResult(
-                locationGranted = fineLocationGranted || coarseLocationGranted,
-                backgroundGranted = backgroundLocationGranted,
+                locationGranted = locationGranted,
+                backgroundGranted = hasBackgroundPermission(),
                 activityGranted = activityRecognitionGranted
             )
+        )
+
+        // Show dialog to explain background location requirement
+        if (locationGranted && !hasBackgroundPermission()) {
+            showBackgroundDialog = true
+        }
+    }
+
+    // Show dialog explaining background location before opening settings
+    if (showBackgroundDialog) {
+        AlertDialog(
+            onDismissRequest = { showBackgroundDialog = false },
+            title = { Text("Background Location Required") },
+            text = {
+                Text("To track geofence visits while the app is not in use, please select 'Allow all the time' for location access on the next screen.")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showBackgroundDialog = false
+                        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                            data = Uri.fromParts("package", context.packageName, null)
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        context.startActivity(intent)
+                    }
+                ) {
+                    Text("Open Settings")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showBackgroundDialog = false }) {
+                    Text("Cancel")
+                }
+            }
         )
     }
 
     LaunchedEffect(Unit) {
         val permissions = mutableListOf(
             Manifest.permission.ACCESS_FINE_LOCATION,
-            Manifest.permission.ACCESS_COARSE_LOCATION,
-            Manifest.permission.ACCESS_BACKGROUND_LOCATION
+            Manifest.permission.ACCESS_COARSE_LOCATION
         )
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             permissions.add(Manifest.permission.ACTIVITY_RECOGNITION)
         }
-        launcher.launch(permissions.toTypedArray())
+        foregroundAndActivityLauncher.launch(permissions.toTypedArray())
+    }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                onPermissionsResult(
+                    PermissionResult(
+                        locationGranted = hasLocationPermissionNow(),
+                        backgroundGranted = hasBackgroundPermission(),
+                        activityGranted = hasActivityPermissionNow()
+                    )
+                )
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
     }
 }
