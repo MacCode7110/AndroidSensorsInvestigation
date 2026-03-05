@@ -46,12 +46,12 @@ fun MainScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(all = 16.dp),
+            .padding(all = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         DataText(viewModel)
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(30.dp))
 
         if(!locationEnabled) {
             RequestLocationPermission {
@@ -67,9 +67,9 @@ fun MainScreen(
             } else {
                 Spacer(modifier = Modifier.fillMaxSize())
             }
-        }
 
-        ActivityView(activity = activity)
+            ActivityView(activity = activity)
+        }
         
         if (viewModel.isDebug) {
             DebugActivityControls(viewModel)
@@ -86,9 +86,9 @@ fun DataText(
     val steps by viewModel.steps.collectAsState()
 
     Column(horizontalAlignment = Alignment.Start, modifier = Modifier.fillMaxWidth()) {
-        Text(text = "Visits to Campus Center: $visitsCC", fontSize = 16.sp)
-        Text(text = "Visits to Unity Hall: $visitsUnity", fontSize = 16.sp)
-        Text(text = "Steps: $steps", fontSize = 16.sp)
+        Text(text = "Visits to Campus Center geoFence: $visitsCC", fontSize = 16.sp)
+        Text(text = "Visits to Unity Hall geoFence: $visitsUnity", fontSize = 16.sp)
+        Text(text = "Steps taken since app started: $steps", fontSize = 16.sp)
     }
 }
 
@@ -102,25 +102,26 @@ fun ActivityView(
         ActivityType.STILL -> painterResource(R.drawable.still)
         ActivityType.WALKING -> painterResource(R.drawable.walking)
     }
-    val activityText = when(activity) {
-        ActivityType.IN_VEHICLE -> "Driving"
-        ActivityType.RUNNING -> "Running"
-        ActivityType.STILL -> "Still"
-        ActivityType.WALKING -> "Walking"
+    val activityText = when (activity) {
+        ActivityType.IN_VEHICLE -> "You are Driving"
+        ActivityType.RUNNING -> "You are Running"
+        ActivityType.STILL -> "You are Still"
+        ActivityType.WALKING -> "You are Walking"
     }
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.padding(vertical = 8.dp)
+        modifier = Modifier
+            .padding(vertical = 8.dp)
     ) {
         Image(
             painter = activityImage,
             contentDescription = "Activity Image",
-            modifier = Modifier.size(200.dp),
+            modifier = Modifier.size(300.dp),
             contentScale = ContentScale.Fit,
         )
         Text(
-            text = "Status: $activityText",
+            text = activityText,
             fontSize = 20.sp,
             modifier = Modifier.padding(top = 4.dp)
         )

@@ -3,7 +3,6 @@ package com.example.androidsensorsinvestigation.ui.main.activityRepos
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.util.Log
 import com.example.androidsensorsinvestigation.ui.main.ActivityStateHolder
 import com.example.androidsensorsinvestigation.ui.main.ActivityTransitionReceiver
 import com.google.android.gms.location.ActivityRecognition
@@ -34,6 +33,10 @@ open class ActivityRecognitionRepository @Inject constructor(
                 ActivityTransition.Builder()
                     .setActivityType(activityType)
                     .setActivityTransition(ActivityTransition.ACTIVITY_TRANSITION_ENTER)
+                    .build(),
+                ActivityTransition.Builder()
+                    .setActivityType(activityType)
+                    .setActivityTransition(ActivityTransition.ACTIVITY_TRANSITION_EXIT)
                     .build()
             )
         }
