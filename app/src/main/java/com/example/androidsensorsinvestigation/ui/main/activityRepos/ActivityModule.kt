@@ -11,12 +11,12 @@ import javax.inject.Singleton
 abstract class ActivityModule {
 
     //Uncomment to test debug repo with buttons to change activity
-
+    /*
     @Binds
     @Singleton
     abstract fun bindActivityRepository(
         fakeRepo: FakeActivityRepo
     ): ActivityRecognitionRepository
 
-
+     */
 }
