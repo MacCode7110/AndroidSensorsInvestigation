@@ -39,4 +39,4 @@ Code References:
 Run Instructions:
 
     Application tested on Android API 36 physical device and emulator in Android Studio.
-        
+    Please test our application on the WPI campus to observe all functionality. Our demonstration video only presents some of the functionality of our application.
