@@ -1,6 +1,9 @@
 Group:
 memcalarney, McAlarney, Matthew
+
 junitin1000, Golden, Jonathan
+
+nnewt1, Newton, Noah
 
 
 Code References:
@@ -22,4 +25,9 @@ Code References:
     3. Map
 
         Developed based on previous code written for a personal project by Cody
+
+    4. Geofencing
+
+        Android Developer Documentation: https://developer.android.com/develop/sensors-and-location/location/geofencing
+        Developed with the help of Github Copilot
         
