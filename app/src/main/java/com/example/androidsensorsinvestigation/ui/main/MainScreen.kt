@@ -57,7 +57,7 @@ fun MainScreen(
     modifier: Modifier = Modifier,
     viewModel: MainViewModel = hiltViewModel()
 ) {
-    val activity by viewModel.activityType.collectAsState()
+    val activityType by viewModel.activityType.collectAsState()
     val locationEnabled by viewModel.locationEnabled.collectAsState()
     val context = LocalContext.current
 
@@ -109,6 +109,7 @@ fun MainScreen(
     DisposableEffect(hasActivityPermission) {
         if (hasActivityPermission) {
             viewModel.startStepTracking()
+            viewModel.startActivityTracking()
         }
         onDispose {
             viewModel.stopStepTracking()
@@ -139,9 +140,8 @@ fun MainScreen(
                 if (result.activityGranted) {
                     hasActivityPermission = true
                     viewModel.startStepTracking()
+                    viewModel.startActivityTracking()
                 }
-                viewModel.startActivityTracking()
-
             }
         }
 
@@ -156,7 +156,7 @@ fun MainScreen(
                 Spacer(modifier = Modifier.fillMaxSize())
             }
 
-            ActivityView(activity = activity)
+            ActivityView(activity = activityType)
         }
 
         if (viewModel.isDebug) {
@@ -201,6 +201,7 @@ fun ActivityView(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .padding(vertical = 8.dp)
+            .fillMaxWidth()
     ) {
         Image(
             painter = activityImage,
@@ -320,9 +321,7 @@ fun RequestPermissions(
     LaunchedEffect(Unit) {
         val permissions = mutableListOf(
             Manifest.permission.ACCESS_FINE_LOCATION,
-            Manifest.permission.ACCESS_COARSE_LOCATION,
-            Manifest.permission.ACTIVITY_RECOGNITION
-
+            Manifest.permission.ACCESS_COARSE_LOCATION
         )
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             permissions.add(Manifest.permission.ACTIVITY_RECOGNITION)
@@ -377,4 +376,3 @@ fun DebugActivityControls(
         }
     }
 }
-

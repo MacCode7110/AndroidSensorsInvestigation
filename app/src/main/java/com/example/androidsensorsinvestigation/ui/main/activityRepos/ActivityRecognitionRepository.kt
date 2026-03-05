@@ -23,6 +23,7 @@ open class ActivityRecognitionRepository @Inject constructor(
     open val activityFlow: StateFlow<Int> = ActivityStateHolder.activityFlow
 
     open fun startTracking() {
+        // 1. Request Activity Transitions (Confirmed, high-accuracy changes)
         val transitions = listOf(
             DetectedActivity.STILL,
             DetectedActivity.WALKING,
@@ -42,7 +43,6 @@ open class ActivityRecognitionRepository @Inject constructor(
         }
 
         val request = ActivityTransitionRequest(transitions)
-
         val intent = Intent(context, ActivityTransitionReceiver::class.java)
 
         val pendingIntent = PendingIntent.getBroadcast(
@@ -51,9 +51,14 @@ open class ActivityRecognitionRepository @Inject constructor(
         )
 
         try {
+            // Request Transitions
             client.requestActivityTransitionUpdates(request, pendingIntent)
-        }
-        catch (e: SecurityException){
+            
+            // 2. Request Frequent Activity Recognition Updates (Faster/probabilistic updates)
+            // 0L interval requests updates as fast as possible (usually every few seconds)
+            client.requestActivityUpdates(0L, pendingIntent)
+            
+        } catch (e: SecurityException) {
             e.printStackTrace()
         }
     }
@@ -66,6 +71,7 @@ open class ActivityRecognitionRepository @Inject constructor(
         )
         try {
             client.removeActivityTransitionUpdates(pendingIntent)
+            client.removeActivityUpdates(pendingIntent)
         }
         catch (e: SecurityException){
             e.printStackTrace()

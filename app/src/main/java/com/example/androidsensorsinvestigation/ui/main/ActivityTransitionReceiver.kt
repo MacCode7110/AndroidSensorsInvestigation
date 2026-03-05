@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import com.google.android.gms.location.ActivityRecognitionResult
 import com.google.android.gms.location.ActivityTransition
 import com.google.android.gms.location.ActivityTransitionResult
 import com.google.android.gms.location.DetectedActivity
@@ -21,7 +22,18 @@ class ActivityTransitionReceiver : BroadcastReceiver() {
     }
 
     override fun onReceive(context: Context, intent: Intent) {
-        // Handle Real System Result
+        // 1. Handle Real-time Activity Recognition Results (Faster updates)
+        if (ActivityRecognitionResult.hasResult(intent)) {
+            val result = ActivityRecognitionResult.extractResult(intent)
+            result?.mostProbableActivity?.let { activity ->
+                // Only update if confidence is high enough (e.g., > 75%)
+                if (activity.confidence >= 75) {
+                    updateActivity(activity.type)
+                }
+            }
+        }
+        
+        // 2. Handle Activity Transition Events (Confirmed transitions)
         if (ActivityTransitionResult.hasResult(intent)) {
             val result = ActivityTransitionResult.extractResult(intent)
             result?.transitionEvents?.forEach { event ->
@@ -30,14 +42,17 @@ class ActivityTransitionReceiver : BroadcastReceiver() {
                 }
             }
         } 
-        // Handle Debug Signal
-        else if (intent.action == ACTION_DEBUG_ACTIVITY) {
+        
+        // 3. Handle Debug Signal
+        if (intent.action == ACTION_DEBUG_ACTIVITY) {
             val activityType = intent.getIntExtra(EXTRA_ACTIVITY_TYPE, DetectedActivity.STILL)
             updateActivity(activityType)
         }
     }
 
     private fun updateActivity(type: Int) {
-        ActivityStateHolder.activityFlow.value = type
+        if (ActivityStateHolder.activityFlow.value != type) {
+            ActivityStateHolder.activityFlow.value = type
+        }
     }
 }
