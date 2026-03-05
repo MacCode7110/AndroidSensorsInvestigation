@@ -6,7 +6,8 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
-    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION"/>
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+
 
     <application
         android:name=".App"
@@ -35,6 +36,15 @@
         <receiver
             android:name=".GeofenceBroadcastReceiver"
             android:exported="false" />
+
+        <receiver
+            android:name=".ui.main.ActivityTransitionReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.example.androidsensorsinvestigation.DEBUG_ACTIVITY" />
+            </intent-filter>
+        </receiver>
+
     </application>
 
 </manifest>

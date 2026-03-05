@@ -2,6 +2,7 @@ package com.example.androidsensorsinvestigation.ui.main
 
 import android.Manifest
 import android.content.Intent
+import android.util.Log
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
@@ -9,11 +10,16 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Button
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -40,9 +46,10 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.example.androidsensorsinvestigation.R
 import com.example.androidsensorsinvestigation.viewmodel.ActivityType
 import com.example.androidsensorsinvestigation.viewmodel.MainViewModel
-import com.example.androidsensorsinvestigation.R
+import com.google.android.gms.location.DetectedActivity
 
 @Preview(showBackground = true)
 @Composable
@@ -50,7 +57,7 @@ fun MainScreen(
     modifier: Modifier = Modifier,
     viewModel: MainViewModel = hiltViewModel()
 ) {
-    val activity = ActivityType.RUNNING
+    val activity by viewModel.activityType.collectAsState()
     val locationEnabled by viewModel.locationEnabled.collectAsState()
     val context = LocalContext.current
 
@@ -111,12 +118,12 @@ fun MainScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(all = 20.dp),
+            .padding(all = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         DataText(viewModel)
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(30.dp))
 
         if (!hasLocationPermission || !hasBackgroundPermission || !hasActivityPermission) {
             RequestPermissions { result ->
@@ -133,17 +140,28 @@ fun MainScreen(
                     hasActivityPermission = true
                     viewModel.startStepTracking()
                 }
+                viewModel.startActivityTracking()
+
             }
         }
 
-        if (locationEnabled) {
-            LaunchedEffect(Unit) {
-                viewModel.registerGeofences()
+        // MapView or placeholder taking up flexible space
+        Column(modifier = Modifier.weight(1f)) {
+            if(locationEnabled) {
+                LaunchedEffect(Unit) {
+                    viewModel.registerGeofences()
+                }
+                MapView(viewModel = viewModel)
+            } else {
+                Spacer(modifier = Modifier.fillMaxSize())
             }
-            MapView(viewModel = viewModel)
+
+            ActivityView(activity = activity)
         }
 
-        ActivityView(activity = activity)
+        if (viewModel.isDebug) {
+            DebugActivityControls(viewModel)
+        }
     }
 }
 
@@ -155,18 +173,11 @@ fun DataText(
     val visitsUnity by viewModel.visitsUnity.collectAsState()
     val steps by viewModel.steps.collectAsState()
 
-    Text(
-        text = "Visits to Campus Center geoFence: $visitsCC",
-        fontSize = 18.sp
-    )
-    Text(
-        text = "Visits to Unity Hall geoFence: $visitsUnity",
-        fontSize = 18.sp
-    )
-    Text(
-        text = "Steps taken since app started: $steps",
-        fontSize = 18.sp
-    )
+    Column(horizontalAlignment = Alignment.Start, modifier = Modifier.fillMaxWidth()) {
+        Text(text = "Visits to Campus Center geoFence: $visitsCC", fontSize = 16.sp)
+        Text(text = "Visits to Unity Hall geoFence: $visitsUnity", fontSize = 16.sp)
+        Text(text = "Steps taken since app started: $steps", fontSize = 16.sp)
+    }
 }
 
 @Composable
@@ -187,21 +198,20 @@ fun ActivityView(
     }
 
     Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .padding(vertical = 8.dp)
     ) {
         Image(
             painter = activityImage,
             contentDescription = "Activity Image",
-            modifier = Modifier
-                .height(300.dp)
-                .width(300.dp),
+            modifier = Modifier.size(300.dp),
             contentScale = ContentScale.Fit,
         )
         Text(
             text = activityText,
             fontSize = 20.sp,
-            modifier = Modifier.padding(top = 10.dp)
+            modifier = Modifier.padding(top = 4.dp)
         )
     }
 }
@@ -310,7 +320,9 @@ fun RequestPermissions(
     LaunchedEffect(Unit) {
         val permissions = mutableListOf(
             Manifest.permission.ACCESS_FINE_LOCATION,
-            Manifest.permission.ACCESS_COARSE_LOCATION
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+            Manifest.permission.ACTIVITY_RECOGNITION
+
         )
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             permissions.add(Manifest.permission.ACTIVITY_RECOGNITION)
@@ -336,3 +348,33 @@ fun RequestPermissions(
         }
     }
 }
+
+@Composable
+fun DebugActivityControls(
+    viewModel: MainViewModel
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+    ) {
+        Text("Debug Simulation", fontSize = 14.sp)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            Button(onClick = { viewModel.debugSetActivity(DetectedActivity.WALKING) }, modifier = Modifier.weight(1f).padding(2.dp)) {
+                Text("Walk", fontSize = 10.sp)
+            }
+            Button(onClick = { viewModel.debugSetActivity(DetectedActivity.RUNNING) }, modifier = Modifier.weight(1f).padding(2.dp)) {
+                Text("Run", fontSize = 10.sp)
+            }
+            Button(onClick = { viewModel.debugSetActivity(DetectedActivity.IN_VEHICLE) }, modifier = Modifier.weight(1f).padding(2.dp)) {
+                Text("Drive", fontSize = 10.sp)
+            }
+            Button(onClick = { viewModel.debugSetActivity(DetectedActivity.STILL) }, modifier = Modifier.weight(1f).padding(2.dp)) {
+                Text("Still", fontSize = 10.sp)
+            }
+        }
+    }
+}
+
