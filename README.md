@@ -14,10 +14,12 @@ Code References:
         Developed with the help of Android Studio's built-in Google Gemini Agent
 
     2. Activity Recognition
+
         Detect When Users Start and End an Activity: https://developer.android.com/develop/sensors-and-location/location/transitions
         Sensors Overview: https://developer.android.com/develop/sensors-and-location/sensors/sensors_overview
         Developed with the help of Android Studio's built-in Google Gemini Agent
 
     3. Map
+
         Developed based on previous code written for a personal project by Cody
         
