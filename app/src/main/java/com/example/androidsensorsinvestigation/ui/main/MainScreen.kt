@@ -86,19 +86,15 @@ fun MainScreen(
             RequestPermissions { result ->
                 if (result.locationGranted) {
                     viewModel.setLocationEnabled(true)
+                    viewModel.startLocationUpdates()
+                    viewModel.registerGeofences()
                 }
                 if (result.activityGranted) {
                     viewModel.startStepTracking()
                 }
-        if (!locationEnabled) {
-            RequestLocationPermission {
-                viewModel.setLocationEnabled(true)
-                viewModel.startLocationUpdates()
-                viewModel.registerGeofences()
             }
         }
 
-        if (locationEnabled) {
         if (locationEnabled) {
             LaunchedEffect(Unit) {
                 viewModel.registerGeofences()

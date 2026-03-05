@@ -13,7 +13,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Looper
 import android.util.Log
-import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import com.example.androidsensorsinvestigation.GeofenceBroadcastReceiver
@@ -36,10 +35,6 @@ import kotlinx.coroutines.flow.asStateFlow
 class MainViewModel @Inject constructor(
     private val application: Application,
     geofenceVisitStore: GeofenceVisitLocation
-) : ViewModel() {
-    // To use these variables, modify the one starting with _ in this class for storing data, but access it in the UI composables with the other one
-    val visitsCC: StateFlow<Int> = geofenceVisitStore.visitsCampusCenter
-    application: Application
 ) : ViewModel(), SensorEventListener {
 
     private val sensorManager = application.getSystemService(Context.SENSOR_SERVICE) as SensorManager
@@ -49,9 +44,8 @@ class MainViewModel @Inject constructor(
     private var initialStepCount = -1f
     private var isTrackingSteps = false
 
-    private val _visitsCC = MutableStateFlow(0)
-    val visitsCC: StateFlow<Int> = _visitsCC
-
+    // To use these variables, modify the one starting with _ in this class for storing data, but access it in the UI composables with the other one
+    val visitsCC: StateFlow<Int> = geofenceVisitStore.visitsCampusCenter
     val visitsUnity: StateFlow<Int> = geofenceVisitStore.visitsUnityHall
 
     private val _steps = MutableStateFlow(0)
