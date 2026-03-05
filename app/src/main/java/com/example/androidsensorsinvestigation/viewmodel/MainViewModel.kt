@@ -1,5 +1,6 @@
 package com.example.androidsensorsinvestigation.viewmodel
 
+import android.Manifest
 import android.app.Application
 import android.content.Intent
 import android.content.Context
@@ -7,9 +8,19 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.app.PendingIntent
+import android.content.ContentValues.TAG
+import android.content.pm.PackageManager
 import android.os.Looper
 import android.util.Log
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
+import com.example.androidsensorsinvestigation.GeofenceBroadcastReceiver
+import com.example.androidsensorsinvestigation.GeofenceVisitLocation
+import com.google.android.gms.common.api.ApiException
+import com.google.android.gms.location.Geofence
+import com.google.android.gms.location.GeofenceStatusCodes
+import com.google.android.gms.location.GeofencingRequest
 import androidx.lifecycle.viewModelScope
 import com.example.androidsensorsinvestigation.ui.main.ActivityTransitionReceiver
 import com.example.androidsensorsinvestigation.ui.main.activityRepos.ActivityRecognitionRepository
@@ -33,7 +44,8 @@ import com.example.androidsensorsinvestigation.ui.main.activityRepos.FakeActivit
 @HiltViewModel
 class MainViewModel @Inject constructor(
     private val application: Application,
-    private val activityRepo : ActivityRecognitionRepository
+    private val activityRepo : ActivityRecognitionRepository,
+    geofenceVisitStore: GeofenceVisitLocation
 ) : ViewModel(), SensorEventListener {
 
     private val sensorManager = application.getSystemService(Context.SENSOR_SERVICE) as SensorManager
@@ -43,15 +55,11 @@ class MainViewModel @Inject constructor(
     private var initialStepCount = -1f
     private var isTrackingSteps = false
 
+    // To use these variables, modify the one starting with _ in this class for storing data, but access it in the UI composables with the other one
+    val visitsCC: StateFlow<Int> = geofenceVisitStore.visitsCampusCenter
+    val visitsUnity: StateFlow<Int> = geofenceVisitStore.visitsUnityHall
 
     val isDebug = activityRepo is FakeActivityRepo
-
-    // To use these variables, modify the one starting with _ in this class for storing data, but access it in the UI composables with the other one
-    private val _visitsCC = MutableStateFlow(0)
-    val visitsCC: StateFlow<Int> = _visitsCC
-
-    private val _visitsUnity = MutableStateFlow(0)
-    val visitsUnity: StateFlow<Int> = _visitsUnity
 
     private val _steps = MutableStateFlow(0)
     val steps: StateFlow<Int> = _steps
@@ -62,14 +70,28 @@ class MainViewModel @Inject constructor(
     private val fusedLocationClient =
         LocationServices.getFusedLocationProviderClient(application)
 
+    private val geofencingClient =
+        LocationServices.getGeofencingClient(application)
+
+    private var isGeofenceRegistered = false
+
     private val _location = MutableStateFlow<LatLng?>(null)
     val location: StateFlow<LatLng?> = _location.asStateFlow()
+
+    private val geofencePendingIntent: PendingIntent by lazy {
+        val intent = Intent(application, GeofenceBroadcastReceiver::class.java)
+        PendingIntent.getBroadcast(
+            application,
+            0,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+        )
+    }
 
     private val locationRequest = LocationRequest.Builder(
         Priority.PRIORITY_HIGH_ACCURACY,
         5000L
-    ).setMinUpdateIntervalMillis(5000L)
-        .build()
+    ).setMinUpdateIntervalMillis(5000L).build()
 
     private val locationCallback = object : LocationCallback() {
         override fun onLocationResult(result: LocationResult) {
@@ -152,6 +174,8 @@ class MainViewModel @Inject constructor(
     }
 
     fun startLocationUpdates() {
+        if (!hasLocationPermission()) return
+
         try {
             fusedLocationClient.requestLocationUpdates(
                 locationRequest,
@@ -159,12 +183,90 @@ class MainViewModel @Inject constructor(
                 Looper.getMainLooper()
             )
         } catch (e: SecurityException) {
-            e.printStackTrace()
+            Log.e(TAG, "Location permission denied", e)
+        }
+    }
+
+    fun registerGeofences() {
+        if (isGeofenceRegistered) {
+            Log.i(TAG, "Geofences already registered, skipping")
+            return
+        }
+
+        if (!hasLocationPermission()) {
+            Log.e(TAG, "Missing fine/coarse location permission for geofences")
+            return
+        }
+
+        if (!hasBackgroundLocationPermission()) {
+            Log.e(TAG, "Missing background location permission for geofences")
+            return
+        }
+
+        val geofenceList = listOf(
+            Geofence.Builder()
+                .setRequestId("campus_center")
+                .setCircularRegion(42.274641, -71.808457, 50f)
+                .setExpirationDuration(Geofence.NEVER_EXPIRE)
+                .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_DWELL)
+                .setLoiteringDelay(5000)
+                .build(),
+
+            Geofence.Builder()
+                .setRequestId("unity_hall")
+                .setCircularRegion(42.273808, -71.806722, 50f)
+                .setExpirationDuration(Geofence.NEVER_EXPIRE)
+                .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_DWELL)
+                .setLoiteringDelay(5000)
+                .build()
+        )
+
+        val geofencingRequest = GeofencingRequest.Builder()
+            .setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_DWELL)
+            .addGeofences(geofenceList)
+            .build()
+
+        Log.i(TAG, "Attempting to register ${geofenceList.size} geofences: ${geofenceList.joinToString { it.requestId }}")
+
+        try {
+            geofencingClient.addGeofences(geofencingRequest, geofencePendingIntent)
+                .addOnSuccessListener {
+                    isGeofenceRegistered = true
+                    Log.i(TAG, "Geofences registered successfully: campus_center, unity_hall")
+                }
+                .addOnFailureListener { e ->
+                    val statusCode = (e as? ApiException)?.statusCode
+                    val statusMessage = statusCode?.let { GeofenceStatusCodes.getStatusCodeString(it) }
+                    Log.e(TAG, "Failed to register geofences. StatusCode=$statusCode ($statusMessage)", e)
+                }
+        } catch (e: SecurityException) {
+            Log.e(TAG, "SecurityException while registering geofences", e)
         }
     }
 
     fun stopLocationUpdates() {
         fusedLocationClient.removeLocationUpdates(locationCallback)
+    }
+
+    private fun hasLocationPermission(): Boolean {
+        val fine = ContextCompat.checkSelfPermission(
+            application,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        val coarse = ContextCompat.checkSelfPermission(
+            application,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        return fine || coarse
+    }
+
+    private fun hasBackgroundLocationPermission(): Boolean {
+        return ContextCompat.checkSelfPermission(
+            application,
+            Manifest.permission.ACCESS_BACKGROUND_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
     }
 
     override fun onCleared() {
