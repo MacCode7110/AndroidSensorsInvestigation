@@ -175,7 +175,20 @@ class MainViewModel @Inject constructor(
     }
 
     fun registerGeofences() {
-        if (isGeofenceRegistered || !hasLocationPermission()) return
+        if (isGeofenceRegistered) {
+            Log.i(TAG, "Geofences already registered, skipping")
+            return
+        }
+
+        if (!hasLocationPermission()) {
+            Log.e(TAG, "Missing fine/coarse location permission for geofences")
+            return
+        }
+
+        if (!hasBackgroundLocationPermission()) {
+            Log.e(TAG, "Missing background location permission for geofences")
+            return
+        }
 
         val geofenceList = listOf(
             Geofence.Builder()
@@ -230,6 +243,13 @@ class MainViewModel @Inject constructor(
         ) == PackageManager.PERMISSION_GRANTED
 
         return fine || coarse
+    }
+
+    private fun hasBackgroundLocationPermission(): Boolean {
+        return ContextCompat.checkSelfPermission(
+            application,
+            Manifest.permission.ACCESS_BACKGROUND_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
     }
 
     override fun onCleared() {

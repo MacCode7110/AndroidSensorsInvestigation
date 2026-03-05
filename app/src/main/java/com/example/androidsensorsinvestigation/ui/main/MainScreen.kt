@@ -18,6 +18,9 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
@@ -42,27 +45,51 @@ fun MainScreen(
     val locationEnabled by viewModel.locationEnabled.collectAsState()
     val context = LocalContext.current
 
-    val hasLocationPermission = ContextCompat.checkSelfPermission(
-        context, Manifest.permission.ACCESS_FINE_LOCATION
-    ) == PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(
-        context, Manifest.permission.ACCESS_COARSE_LOCATION
-    ) == PackageManager.PERMISSION_GRANTED
+    var hasLocationPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(
+                context, Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(
+                context, Manifest.permission.ACCESS_COARSE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+        )
+    }
 
-    val hasActivityPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-        ContextCompat.checkSelfPermission(
-            context, Manifest.permission.ACTIVITY_RECOGNITION
-        ) == PackageManager.PERMISSION_GRANTED
-    } else {
-        true
+    var hasBackgroundPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(
+                context, Manifest.permission.ACCESS_BACKGROUND_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+
+    var hasActivityPermission by remember {
+        mutableStateOf(
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                ContextCompat.checkSelfPermission(
+                    context, Manifest.permission.ACTIVITY_RECOGNITION
+                ) == PackageManager.PERMISSION_GRANTED
+            } else {
+                true
+            }
+        )
     }
 
     LaunchedEffect(hasLocationPermission) {
         if (hasLocationPermission) {
             viewModel.setLocationEnabled(true)
+            viewModel.startLocationUpdates()
         }
     }
 
-    // Start/Stop step tracking based on activity permission and lifecycle
+    // Register geofences when we have both location and background permissions
+    LaunchedEffect(hasLocationPermission, hasBackgroundPermission) {
+        if (hasLocationPermission && hasBackgroundPermission) {
+            viewModel.registerGeofences()
+        }
+    }
+
+    // Start/Stop step tracking based on activity permission
     DisposableEffect(hasActivityPermission) {
         if (hasActivityPermission) {
             viewModel.startStepTracking()
@@ -82,14 +109,19 @@ fun MainScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        if (!hasLocationPermission || !hasActivityPermission) {
+        if (!hasLocationPermission || !hasBackgroundPermission || !hasActivityPermission) {
             RequestPermissions { result ->
                 if (result.locationGranted) {
+                    hasLocationPermission = true
                     viewModel.setLocationEnabled(true)
                     viewModel.startLocationUpdates()
+                }
+                if (result.backgroundGranted) {
+                    hasBackgroundPermission = true
                     viewModel.registerGeofences()
                 }
                 if (result.activityGranted) {
+                    hasActivityPermission = true
                     viewModel.startStepTracking()
                 }
             }
@@ -165,7 +197,11 @@ fun ActivityView(
     }
 }
 
-data class PermissionResult(val locationGranted: Boolean, val activityGranted: Boolean)
+data class PermissionResult(
+    val locationGranted: Boolean,
+    val backgroundGranted: Boolean,
+    val activityGranted: Boolean
+)
 
 @Composable
 fun RequestPermissions(
@@ -176,6 +212,7 @@ fun RequestPermissions(
     ) { permissions ->
         val fineLocationGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
         val coarseLocationGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
+        val backgroundLocationGranted = permissions[Manifest.permission.ACCESS_BACKGROUND_LOCATION] ?: false
         val activityRecognitionGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             permissions[Manifest.permission.ACTIVITY_RECOGNITION] ?: false
         } else {
@@ -185,6 +222,7 @@ fun RequestPermissions(
         onPermissionsResult(
             PermissionResult(
                 locationGranted = fineLocationGranted || coarseLocationGranted,
+                backgroundGranted = backgroundLocationGranted,
                 activityGranted = activityRecognitionGranted
             )
         )
