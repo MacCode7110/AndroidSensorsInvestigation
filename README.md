@@ -8,6 +8,8 @@ cjlabonty, LaBonty, Cody
 
 nnewt1, Newton, Noah
 
+cjlabonty, LaBonty, Cody
+
 
 Code References:
 
@@ -33,4 +35,8 @@ Code References:
 
         Android Developer Documentation: https://developer.android.com/develop/sensors-and-location/location/geofencing
         Developed with the help of Github Copilot
+
+Run Instructions:
+
+    Application tested on Android API 36 physical device and emulator in Android Studio.
         
