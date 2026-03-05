@@ -1,23 +1,29 @@
-package com.example.androidsensorsinvestigation.ui.main
+package com.example.androidsensorsinvestigation.ui.main.activityRepos
 
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import com.google.android.gms.location.*
+import android.util.Log
+import com.example.androidsensorsinvestigation.ui.main.ActivityStateHolder
+import com.example.androidsensorsinvestigation.ui.main.ActivityTransitionReceiver
+import com.google.android.gms.location.ActivityRecognition
+import com.google.android.gms.location.ActivityTransition
+import com.google.android.gms.location.ActivityTransitionRequest
+import com.google.android.gms.location.DetectedActivity
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.StateFlow
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class ActivityRecognitionRepository @Inject constructor(
+open class ActivityRecognitionRepository @Inject constructor(
     @ApplicationContext private val context: Context
 ){
     private val client = ActivityRecognition.getClient(context)
 
-    val activityFlow: StateFlow<Int> = ActivityStateHolder.activityFlow
+    open val activityFlow: StateFlow<Int> = ActivityStateHolder.activityFlow
 
-    fun startTracking() {
+    open fun startTracking() {
         val transitions = listOf(
             DetectedActivity.STILL,
             DetectedActivity.WALKING,
@@ -49,7 +55,7 @@ class ActivityRecognitionRepository @Inject constructor(
         }
     }
 
-    fun stopTracking(){
+    open fun stopTracking(){
         val intent = Intent(context, ActivityTransitionReceiver::class.java)
 
         val pendingIntent = PendingIntent.getBroadcast(

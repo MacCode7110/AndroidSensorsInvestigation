@@ -1,10 +1,12 @@
 package com.example.androidsensorsinvestigation.viewmodel
 
 import android.app.Application
+import android.content.Intent
 import android.os.Looper
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.androidsensorsinvestigation.ui.main.ActivityRecognitionRepository
+import com.example.androidsensorsinvestigation.ui.main.ActivityTransitionReceiver
+import com.example.androidsensorsinvestigation.ui.main.activityRepos.ActivityRecognitionRepository
 import com.google.android.gms.location.DetectedActivity
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
@@ -13,19 +15,23 @@ import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.maps.model.LatLng
 import dagger.hilt.android.lifecycle.HiltViewModel
-import jakarta.inject.Inject
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import com.example.androidsensorsinvestigation.ui.main.activityRepos.FakeActivityRepo
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
-    application: Application,
+    private val application: Application,
     private val activityRepo : ActivityRecognitionRepository
 ) : ViewModel() {
+    
+    val isDebug = activityRepo is FakeActivityRepo
+
     // To use these variables, modify the one starting with _ in this class for storing data, but access it in the UI composables with the other one
     private val _visitsCC = MutableStateFlow(0)
     val visitsCC: StateFlow<Int> = _visitsCC
@@ -101,6 +107,16 @@ class MainViewModel @Inject constructor(
 
     fun startActivityTracking(){
         activityRepo.startTracking()
+    }
+
+    fun debugSetActivity(activity: Int) {
+        if (isDebug) {
+            val intent = Intent(application, ActivityTransitionReceiver::class.java).apply {
+                action = ActivityTransitionReceiver.ACTION_DEBUG_ACTIVITY
+                putExtra(ActivityTransitionReceiver.EXTRA_ACTIVITY_TYPE, activity)
+            }
+            application.sendBroadcast(intent)
+        }
     }
 }
 

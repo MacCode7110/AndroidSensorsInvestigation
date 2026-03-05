@@ -1,15 +1,20 @@
 package com.example.androidsensorsinvestigation.ui.main
 
 import android.Manifest
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -24,10 +29,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.androidsensorsinvestigation.R
 import com.example.androidsensorsinvestigation.viewmodel.ActivityType
 import com.example.androidsensorsinvestigation.viewmodel.MainViewModel
-import com.example.androidsensorsinvestigation.R
+import com.google.android.gms.location.DetectedActivity
 
 @Preview(showBackground = true)
 @Composable
@@ -38,31 +43,37 @@ fun MainScreen(
     val activity by viewModel.activityType.collectAsState()
     val locationEnabled by viewModel.locationEnabled.collectAsState()
 
-    LaunchedEffect(Unit){
-        viewModel.startActivityTracking()
-    }
-
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(all = 20.dp),
+            .padding(all = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         DataText(viewModel)
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
         if(!locationEnabled) {
             RequestLocationPermission {
                 viewModel.setLocationEnabled(true)
+                viewModel.startActivityTracking()
             }
         }
 
-        if(locationEnabled) {
-            MapView(viewModel = viewModel)
+        // MapView or placeholder taking up flexible space
+        Column(modifier = Modifier.weight(1f)) {
+            if(locationEnabled) {
+                MapView(viewModel = viewModel)
+            } else {
+                Spacer(modifier = Modifier.fillMaxSize())
+            }
         }
 
         ActivityView(activity = activity)
+        
+        if (viewModel.isDebug) {
+            DebugActivityControls(viewModel)
+        }
     }
 }
 
@@ -74,18 +85,11 @@ fun DataText(
     val visitsUnity by viewModel.visitsUnity.collectAsState()
     val steps by viewModel.steps.collectAsState()
 
-    Text(
-        text = "Visits to Campus Center geoFence: $visitsCC",
-        fontSize = 18.sp
-    )
-    Text(
-        text = "Visits to Unity Hall geoFence: $visitsUnity",
-        fontSize = 18.sp
-    )
-    Text(
-        text = "Steps taken since app started: $steps",
-        fontSize = 18.sp
-    )
+    Column(horizontalAlignment = Alignment.Start, modifier = Modifier.fillMaxWidth()) {
+        Text(text = "Visits to Campus Center: $visitsCC", fontSize = 16.sp)
+        Text(text = "Visits to Unity Hall: $visitsUnity", fontSize = 16.sp)
+        Text(text = "Steps: $steps", fontSize = 16.sp)
+    }
 }
 
 @Composable
@@ -99,28 +103,26 @@ fun ActivityView(
         ActivityType.WALKING -> painterResource(R.drawable.walking)
     }
     val activityText = when(activity) {
-        ActivityType.IN_VEHICLE -> "You are Driving"
-        ActivityType.RUNNING -> "You are Running"
-        ActivityType.STILL -> "You are Still"
-        ActivityType.WALKING -> "You are Walking"
+        ActivityType.IN_VEHICLE -> "Driving"
+        ActivityType.RUNNING -> "Running"
+        ActivityType.STILL -> "Still"
+        ActivityType.WALKING -> "Walking"
     }
 
     Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.padding(vertical = 8.dp)
     ) {
         Image(
             painter = activityImage,
             contentDescription = "Activity Image",
-            modifier = Modifier
-                .height(300.dp)
-                .width(300.dp),
+            modifier = Modifier.size(200.dp),
             contentScale = ContentScale.Fit,
         )
         Text(
-            text = activityText,
+            text = "Status: $activityText",
             fontSize = 20.sp,
-            modifier = Modifier.padding(top = 10.dp)
+            modifier = Modifier.padding(top = 4.dp)
         )
     }
 }
@@ -129,20 +131,12 @@ fun ActivityView(
 fun RequestLocationPermission(
     onPermissionGranted: () -> Unit
 ) {
-    val context = LocalContext.current
-
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
-
-        val fineLocationGranted =
-            permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
-
-        val coarseLocationGranted =
-            permissions[Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
-
-        val activityRecognitionGranted =
-            permissions[Manifest.permission.ACTIVITY_RECOGNITION] ?: false
+        val fineLocationGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
+        val coarseLocationGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
+        val activityRecognitionGranted = permissions[Manifest.permission.ACTIVITY_RECOGNITION] ?: false
 
         if ((fineLocationGranted || coarseLocationGranted) && activityRecognitionGranted) {
             onPermissionGranted()
@@ -157,5 +151,34 @@ fun RequestLocationPermission(
                 Manifest.permission.ACTIVITY_RECOGNITION
             )
         )
+    }
+}
+
+@Composable
+fun DebugActivityControls(
+    viewModel: MainViewModel
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+    ) {
+        Text("Debug Simulation", fontSize = 14.sp)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            Button(onClick = { viewModel.debugSetActivity(DetectedActivity.WALKING) }, modifier = Modifier.weight(1f).padding(2.dp)) {
+                Text("Walk", fontSize = 10.sp)
+            }
+            Button(onClick = { viewModel.debugSetActivity(DetectedActivity.RUNNING) }, modifier = Modifier.weight(1f).padding(2.dp)) {
+                Text("Run", fontSize = 10.sp)
+            }
+            Button(onClick = { viewModel.debugSetActivity(DetectedActivity.IN_VEHICLE) }, modifier = Modifier.weight(1f).padding(2.dp)) {
+                Text("Drive", fontSize = 10.sp)
+            }
+            Button(onClick = { viewModel.debugSetActivity(DetectedActivity.STILL) }, modifier = Modifier.weight(1f).padding(2.dp)) {
+                Text("Still", fontSize = 10.sp)
+            }
+        }
     }
 }
